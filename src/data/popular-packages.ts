@@ -252,6 +252,7 @@ export const POPULAR_PACKAGE_NAMES_RAW: string[] = [
   "@sagold/json-pointer",
   "@salesforce/cli",
   "@salesforce/plugin-data",
+  "@sanity/cli",
   "@sanity/cli-core",
   "@sanity/desk-tool",
   "@scalar/api-client",
