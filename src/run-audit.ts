@@ -25,6 +25,7 @@ export async function runAudit(opts: AuditRunOptions): Promise<AuditRunResult> {
   const blockThreshold = cfg.blockThreshold ?? DEFAULT_CONFIG.blockThreshold;
   const warnThreshold = cfg.warnThreshold ?? DEFAULT_CONFIG.warnThreshold;
   const concurrency = cfg.concurrency ?? DEFAULT_CONFIG.concurrency;
+  const osvConcurrency = cfg.osvConcurrency ?? DEFAULT_CONFIG.osvConcurrency;
   const includeDev = cfg.includeDevDependencies ?? DEFAULT_CONFIG.includeDevDependencies;
   const includeOptional = cfg.includeOptional ?? DEFAULT_CONFIG.includeOptional;
   const includePeer = cfg.includePeer ?? DEFAULT_CONFIG.includePeer;
@@ -32,6 +33,7 @@ export async function runAudit(opts: AuditRunOptions): Promise<AuditRunResult> {
   const trusted = new Set(
     (cfg.trustedPackages ?? []).map((s) => s.toLowerCase()),
   );
+  const typosquatThreshold = cfg.typosquatThreshold ?? DEFAULT_CONFIG.typosquatThreshold;
 
   const packages = await resolvePackages({
     cwd: opts.cwd,
@@ -48,7 +50,7 @@ export async function runAudit(opts: AuditRunOptions): Promise<AuditRunResult> {
 
   if (includeOsv) {
     await attachOsvToMetadata(metas, {
-      concurrency: Math.min(concurrency, 8),
+      concurrency: osvConcurrency,
       signal: undefined,
     });
   }
@@ -57,7 +59,7 @@ export async function runAudit(opts: AuditRunOptions): Promise<AuditRunResult> {
   for (let i = 0; i < metas.length; i++) {
     const meta = metas[i]!;
     const trustedPkg = trusted.has(meta.name.toLowerCase());
-    results.push(evaluatePackageRisk(meta, { trusted: trustedPkg }));
+    results.push(evaluatePackageRisk(meta, { trusted: trustedPkg, typosquatThreshold }));
     opts.onProgress?.(i + 1, total);
   }
 

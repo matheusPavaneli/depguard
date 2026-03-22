@@ -90,6 +90,7 @@ function osvPenalty(meta: PackageMetadata): { penalty: number; flags: RiskFlag[]
 
 export interface EvaluateOptions {
   trusted: boolean;
+  typosquatThreshold?: number;
 }
 
 export function evaluatePackageRisk(
@@ -127,7 +128,7 @@ export function evaluatePackageRisk(
     score -= m.penalty;
     if (m.flag) flags.push(m.flag);
 
-    const typo = findTyposquatTarget(meta.name);
+    const typo = findTyposquatTarget(meta.name, undefined, opts.typosquatThreshold);
     if (typo) {
       let penalty = 0;
       if (typo.similarity >= 0.92) penalty = CAP_TYPOSQUAT;

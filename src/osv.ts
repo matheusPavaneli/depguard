@@ -2,9 +2,40 @@ import pLimit from "p-limit";
 import type { OsvVulnSummary, PackageMetadata } from "./types.js";
 
 const OSV_QUERY = "https://api.osv.dev/v1/query";
+const REQUEST_TIMEOUT_MS = 10_000;
+const MAX_RETRIES = 3;
 
 export interface OsvQueryResponse {
   vulns?: Array<{ id: string; summary?: string }>;
+}
+
+async function fetchOsvWithRetry(
+  body: string,
+  signal: AbortSignal | undefined,
+  retries = MAX_RETRIES,
+): Promise<Response> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    signal?.addEventListener("abort", () => controller.abort(), { once: true });
+
+    try {
+      const res = await fetch(OSV_QUERY, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body,
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      if (signal?.aborted) throw err;
+      if (attempt === retries) throw err;
+      await new Promise((r) => setTimeout(r, 200 * 2 ** (attempt - 1)));
+    }
+  }
+  throw new Error("fetchOsvWithRetry: exhausted retries");
 }
 
 export async function queryOsvForPackage(
@@ -13,15 +44,8 @@ export async function queryOsvForPackage(
   signal?: AbortSignal,
 ): Promise<OsvVulnSummary[]> {
   try {
-    const res = await fetch(OSV_QUERY, {
-      method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({
-        package: { name, ecosystem: "npm" },
-        version,
-      }),
-      signal,
-    });
+    const body = JSON.stringify({ package: { name, ecosystem: "npm" }, version });
+    const res = await fetchOsvWithRetry(body, signal);
     if (!res.ok) return [];
     const data = (await res.json()) as OsvQueryResponse;
     const vulns = data.vulns;
