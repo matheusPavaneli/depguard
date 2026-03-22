@@ -1,5 +1,8 @@
 {
-  "name": "depguard",
+  "name": "@azlabs/depguard",
+  "publishConfig": {
+    "access": "public"
+  },
   "version": "0.1.0",
   "description": "CLI for preventive npm dependency risk scoring: registry metadata, lifecycle scripts, OSV, typosquatting heuristics",
   "type": "module",

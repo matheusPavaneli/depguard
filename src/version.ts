@@ -9,7 +9,12 @@ export function readDepguardVersion(): string {
     if (!existsSync(p)) continue;
     try {
       const j = JSON.parse(readFileSync(p, "utf8")) as { name?: string; version?: string };
-      if (j.name === "depguard" && typeof j.version === "string") return j.version;
+      if (
+        typeof j.version === "string" &&
+        j.name &&
+        (j.name === "depguard" || j.name.endsWith("/depguard"))
+      )
+        return j.version;
     } catch {}
   }
   return "0.0.0";

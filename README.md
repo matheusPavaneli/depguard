@@ -1,5 +1,7 @@
 # depguard
 
+npm package: **`@azlabs/depguard`**. The installed CLI command remains **`depguard`**.
+
 **depguard** is a Node.js CLI that scores npm dependencies on a **0–100 trust scale** using public data only. It complements reactive tools such as `npm audit` and Dependabot by highlighting *risk signals before a CVE exists*: very new releases, low download counts, suspicious `postinstall` scripts, names similar to popular packages (typosquatting), and **known vulnerabilities** from the [Open Source Vulnerabilities (OSV)](https://osv.dev/) database.
 
 It does **not** prove that a package is malware. It helps teams prioritize manual review and safer install workflows with clear, structured reasons for each flag.
@@ -31,13 +33,13 @@ It does **not** prove that a package is malware. It helps teams prioritize manua
 ## Installation
 
 ```bash
-npm install -g depguard
+npm install -g @azlabs/depguard
 ```
 
 Or run without global install:
 
 ```bash
-npx depguard@latest audit
+npx @azlabs/depguard@latest audit
 ```
 
 From a clone of this repository:
