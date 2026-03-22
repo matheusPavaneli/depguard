@@ -56,5 +56,9 @@ export interface DepGuardConfig {
   includeOptional?: boolean;
   includePeer?: boolean;
   concurrency?: number;
+  /** Max concurrent OSV API requests (default: 8) */
+  osvConcurrency?: number;
   includeOsv?: boolean;
+  /** Levenshtein similarity threshold for typosquatting detection (0–1, default: 0.82) */
+  typosquatThreshold?: number;
 }

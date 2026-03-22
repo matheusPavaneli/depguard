@@ -4,25 +4,98 @@ import type { NpmPackument, PackageMetadata } from "./types.js";
 const REGISTRY = "https://registry.npmjs.org";
 const DOWNLOADS_API = "https://api.npmjs.org/downloads/point/last-week";
 
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const REQUEST_TIMEOUT_MS = 10_000; // 10 seconds
+const MAX_RETRIES = 3;
+
 export interface FetchRegistryOptions {
   concurrency?: number;
   signal?: AbortSignal;
 }
 
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+function makeTtlCache<K, V>() {
+  const map = new Map<K, CacheEntry<V>>();
+  return {
+    get(key: K): V | undefined {
+      const entry = map.get(key);
+      if (!entry) return undefined;
+      if (Date.now() > entry.expiresAt) {
+        map.delete(key);
+        return undefined;
+      }
+      return entry.value;
+    },
+    set(key: K, value: V, ttlMs = CACHE_TTL_MS) {
+      map.set(key, { value, expiresAt: Date.now() + ttlMs });
+    },
+    has(key: K): boolean {
+      const entry = map.get(key);
+      if (!entry) return false;
+      if (Date.now() > entry.expiresAt) {
+        map.delete(key);
+        return false;
+      }
+      return true;
+    },
+  };
+}
+
+async function fetchWithTimeoutAndRetry(
+  url: string,
+  init: RequestInit,
+  retries = MAX_RETRIES,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // Merge caller's signal with timeout signal
+    const callerSignal = init.signal as AbortSignal | undefined;
+    if (callerSignal?.aborted) {
+      clearTimeout(timer);
+      throw new DOMException("Aborted", "AbortError");
+    }
+    callerSignal?.addEventListener("abort", () => controller.abort(), { once: true });
+
+    try {
+      const res = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      // Don't retry on caller-initiated abort
+      if (callerSignal?.aborted) throw err;
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      const isLast = attempt === retries;
+      if (isLast) throw err;
+      // Exponential backoff: 200ms, 400ms, 800ms...
+      const delay = isAbort ? 0 : 200 * 2 ** (attempt - 1);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  // Should never reach here
+  throw new Error("fetchWithTimeoutAndRetry: exhausted retries");
+}
+
 export class RegistryClient {
-  private packumentCache = new Map<string, NpmPackument | null | "error">();
-  private downloadsCache = new Map<string, number | null | "error">();
+  private packumentCache = makeTtlCache<string, NpmPackument | null | "error">();
+  private downloadsCache = makeTtlCache<string, number | null | "error">();
 
   async fetchPackument(name: string, signal?: AbortSignal): Promise<NpmPackument | null> {
     const key = name.toLowerCase();
     if (this.packumentCache.has(key)) {
       const c = this.packumentCache.get(key);
       if (c === "error") return null;
-      return c ?? null;
+      return (c as NpmPackument | null | undefined) ?? null;
     }
     const url = `${REGISTRY}/${encodeURIComponent(name)}`;
     try {
-      const res = await fetch(url, {
+      const res = await fetchWithTimeoutAndRetry(url, {
         signal,
         headers: { accept: "application/json" },
       });
@@ -48,11 +121,11 @@ export class RegistryClient {
     if (this.downloadsCache.has(key)) {
       const c = this.downloadsCache.get(key);
       if (c === "error") return null;
-      return typeof c === "number" || c === null ? c : null;
+      return typeof c === "number" || c === null ? (c as number | null) : null;
     }
     const url = `${DOWNLOADS_API}/${encodeURIComponent(name)}`;
     try {
-      const res = await fetch(url, { signal });
+      const res = await fetchWithTimeoutAndRetry(url, { signal });
       if (!res.ok) {
         this.downloadsCache.set(key, null);
         return null;

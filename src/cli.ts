@@ -1,12 +1,14 @@
 import { spawn } from "node:child_process";
+import { existsSync, statSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { cac } from "cac";
 import chalk from "chalk";
 import { loadConfig, DEFAULT_CONFIG, mergeConfig } from "./config.js";
 import { buildFeedbackPayload, writeFeedbackFile } from "./feedback-export.js";
 import { runAudit, shouldBlockInstall } from "./run-audit.js";
+import { readDepguardVersion } from "./version.js";
 import type { PackageRiskResult } from "./types.js";
 
 function formatRow(r: PackageRiskResult, colorize: boolean): string {
@@ -73,7 +75,7 @@ function extractNpmArgs(argv: string[]): string[] {
 
 async function main() {
   const app = cac("depguard");
-  app.version("0.1.0");
+  app.version(readDepguardVersion());
 
   app
     .command("audit", "Analyze dependencies and print trust scores")
@@ -88,6 +90,11 @@ async function main() {
     )
     .action(async (options) => {
       const cwd = resolve(String(options.cwd));
+      if (!existsSync(cwd) || !statSync(cwd).isDirectory()) {
+        console.error(`Error: directory not found: ${cwd}`);
+        process.exitCode = 1;
+        return;
+      }
       const file = loadConfig(cwd);
       const cfg = mergeConfig(file, {});
       if (options.strict === true) cfg.strict = true;
@@ -116,6 +123,12 @@ async function main() {
           typeof options.exportFeedback === "string" && options.exportFeedback.length > 0
             ? resolve(options.exportFeedback)
             : join(cwd, "depguard-feedback.json");
+        const destDir = dirname(dest);
+        if (!existsSync(destDir)) {
+          console.error(`Error: output directory does not exist: ${destDir}`);
+          process.exitCode = 1;
+          return;
+        }
         const payload = buildFeedbackPayload(cwd, results, minScore, cfg);
         writeFeedbackFile(dest, payload);
         if (!options.json) {
@@ -165,6 +178,11 @@ async function main() {
     .allowUnknownOptions()
     .action(async (options) => {
       const cwd = resolve(String(options.cwd));
+      if (!existsSync(cwd) || !statSync(cwd).isDirectory()) {
+        console.error(`Error: directory not found: ${cwd}`);
+        process.exitCode = 1;
+        return;
+      }
       const file = loadConfig(cwd);
       const cfg = mergeConfig(file, {});
       if (options.strict === true) cfg.strict = true;
@@ -207,7 +225,6 @@ async function main() {
         const child = spawn("npm", ["install", ...npmArgs], {
           cwd,
           stdio: "inherit",
-          shell: true,
         });
         child.on("error", rej);
         child.on("close", (code) => {

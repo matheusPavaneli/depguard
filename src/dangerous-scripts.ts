@@ -30,7 +30,8 @@ const PATTERNS: Array<{
     id: "script-eval",
     severity: "high",
     message: "eval or equivalent in script",
-    regex: /\beval\s*\(|Function\s*\(|new\s+Function\b/i,
+    // Match eval(...) as a call (not as a property access like obj.eval), new Function(), or Function() constructor
+    regex: /(?<![.\w])eval\s*\(|new\s+Function\s*\(|(?<![.\w])Function\s*\(\s*["'`]/i,
   },
   {
     id: "script-powershell-remote",
@@ -42,7 +43,8 @@ const PATTERNS: Array<{
     id: "script-child-process",
     severity: "warn",
     message: "child_process / exec / spawn in lifecycle — verify source",
-    regex: /child_process|\.exec\s*\(|\.spawn\s*\(|\.execFile\s*\(/i,
+    // Require child_process to appear as a module reference (require/import), not in arbitrary strings
+    regex: /require\s*\(\s*['"`]child_process['"`]\s*\)|from\s+['"`]child_process['"`]|\.exec\s*\(|\.spawn\s*\(|\.execFile\s*\(/i,
   },
   {
     id: "script-node-inline",

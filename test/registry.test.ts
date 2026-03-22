@@ -41,7 +41,7 @@ describe("RegistryClient", () => {
     expect(m.version).toBe("1.0.0");
     expect(m.weeklyDownloads).toBe(1234);
     expect(m.maintainersCount).toBe(2);
-    expect(m.publishedAt?.getFullYear()).toBe(2020);
+    expect(m.publishedAt?.getUTCFullYear()).toBe(2020);
   });
 
   it("404 yields fetchError", async () => {

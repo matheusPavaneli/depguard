@@ -13,7 +13,9 @@ export const DEFAULT_CONFIG: Required<
     | "includeOptional"
     | "includePeer"
     | "concurrency"
+    | "osvConcurrency"
     | "includeOsv"
+    | "typosquatThreshold"
   >
 > & { strict: boolean } = {
   blockThreshold: 40,
@@ -23,8 +25,50 @@ export const DEFAULT_CONFIG: Required<
   includeOptional: true,
   includePeer: false,
   concurrency: 10,
+  osvConcurrency: 8,
   includeOsv: true,
+  typosquatThreshold: 0.82,
 };
+
+function validateConfig(cfg: DepGuardConfig, filePath: string): DepGuardConfig {
+  const out: DepGuardConfig = { ...cfg };
+
+  for (const key of ["blockThreshold", "warnThreshold"] as const) {
+    const val = cfg[key];
+    if (val !== undefined) {
+      if (typeof val !== "number" || val < 0 || val > 100) {
+        console.warn(
+          `[depguard] config warning in ${filePath}: "${key}" must be a number between 0 and 100 (got ${JSON.stringify(val)}). Using default.`,
+        );
+        delete out[key];
+      }
+    }
+  }
+
+  for (const key of ["concurrency", "osvConcurrency"] as const) {
+    const val = cfg[key];
+    if (val !== undefined) {
+      if (typeof val !== "number" || val < 1 || !Number.isInteger(val)) {
+        console.warn(
+          `[depguard] config warning in ${filePath}: "${key}" must be a positive integer (got ${JSON.stringify(val)}). Using default.`,
+        );
+        delete out[key];
+      }
+    }
+  }
+
+  if (cfg.typosquatThreshold !== undefined) {
+    const val = cfg.typosquatThreshold;
+    if (typeof val !== "number" || val <= 0 || val > 1) {
+      console.warn(
+        `[depguard] config warning in ${filePath}: "typosquatThreshold" must be a number between 0 and 1 (got ${JSON.stringify(val)}). Using default.`,
+      );
+      delete out.typosquatThreshold;
+    }
+  }
+
+  return out;
+}
 
 export function loadConfig(cwd: string): DepGuardConfig {
   for (const name of CONFIG_NAMES) {
@@ -33,8 +77,11 @@ export function loadConfig(cwd: string): DepGuardConfig {
     try {
       const raw = readFileSync(p, "utf8");
       const parsed = JSON.parse(raw) as DepGuardConfig;
-      return { ...parsed };
-    } catch {
+      return validateConfig(parsed, p);
+    } catch (err) {
+      console.warn(
+        `[depguard] failed to parse config file "${p}": ${err instanceof Error ? err.message : String(err)}. Config will be ignored.`,
+      );
       return {};
     }
   }

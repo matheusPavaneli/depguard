@@ -132,8 +132,10 @@ export async function resolvePackages(opts: ResolveOptions): Promise<ResolvedPac
       });
       const v = mani.version;
       if (typeof v === "string") resolved.push({ name, version: v });
-    } catch {
-      resolved.push({ name, version: range });
+    } catch (err) {
+      console.warn(
+        `[depguard] could not resolve "${name}@${range}": ${err instanceof Error ? err.message : String(err)}. Skipping package.`,
+      );
     }
   }
 
