@@ -1,0 +1,35 @@
+name: False positive
+description: Report an incorrect or overly noisy depguard alert
+title: "[false-positive] "
+labels: ["false-positive"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Attach output from `depguard audit --export-feedback` (or paste JSON).
+        Optionally include `depguard audit --json` and the package name/version.
+
+  - type: textarea
+    id: package
+    attributes:
+      label: Package and version
+      description: "Example: lodash@4.17.21"
+      placeholder: name@version
+    validations:
+      required: true
+
+  - type: textarea
+    id: feedback_json
+    attributes:
+      label: depguard-feedback.json or audit --json output
+      description: Paste the exported JSON (no credentials or sensitive paths).
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: why_false
+    attributes:
+      label: Why is this a false positive?
+    validations:
+      required: true

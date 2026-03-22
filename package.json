@@ -1,0 +1,50 @@
+{
+  "name": "depguard",
+  "version": "0.1.0",
+  "description": "CLI for preventive npm dependency risk scoring: registry metadata, lifecycle scripts, OSV, typosquatting heuristics",
+  "type": "module",
+  "bin": {
+    "depguard": "./dist/cli.js"
+  },
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "eval:metrics": "tsx scripts/eval-metrics.mts",
+    "generate:popular": "tsx scripts/generate-popular-packages.mts",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "npm",
+    "security",
+    "supply-chain",
+    "dependencies",
+    "audit",
+    "cli"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "cac": "^6.7.14",
+    "chalk": "^5.4.1",
+    "p-limit": "^6.2.0",
+    "pacote": "^21.0.0",
+    "semver": "^7.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/semver": "^7.5.8",
+    "msw": "^2.7.3",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.9"
+  }
+}
