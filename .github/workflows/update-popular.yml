@@ -35,6 +35,16 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Delete stale branch if exists
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/git/refs/heads/chore/update-popular-packages \
+            --silent && \
+          gh api --method DELETE repos/${{ github.repository }}/git/refs/heads/chore/update-popular-packages \
+            || true
+
       - name: Open or update pull request
         id: cpr
         if: steps.diff.outputs.changed == 'true'
