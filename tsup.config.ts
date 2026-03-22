@@ -11,5 +11,5 @@ export default defineConfig({
   banner: {
     js: "#!/usr/bin/env node",
   },
-  external: ["cac", "chalk", "p-limit", "pacote", "semver"],
+  external: ["cac", "chalk", "p-limit", "pacote", "semver", "shell-quote"],
 });

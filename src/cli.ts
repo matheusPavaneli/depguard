@@ -84,6 +84,8 @@ async function main() {
     .option("--no-color", "Disable ANSI colors")
     .option("--json", "Print JSON output")
     .option("--no-osv", "Skip OSV lookups (api.osv.dev)")
+    .option("--deep", "Download and scan tarball contents for hidden malicious patterns")
+    .option("--deep-concurrency <n>", "Max concurrent tarball downloads for --deep (default: 2)")
     .option(
       "--export-feedback [file]",
       "Write anonymized JSON (scores/flags) for GitHub issues",
@@ -102,9 +104,17 @@ async function main() {
 
       const colorize = !options["no-color"] && !options.json;
 
+      const deep = options.deep === true;
+      const deepConcurrency =
+        options["deep-concurrency"] !== undefined
+          ? Math.max(1, parseInt(String(options["deep-concurrency"]), 10) || 2)
+          : 2;
+
       const { results, minScore, strictFailed } = await runAudit({
         cwd,
         config: cfg,
+        deep,
+        deepConcurrency,
         onProgress:
           options.json || !process.stderr.isTTY
             ? undefined

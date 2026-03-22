@@ -1,4 +1,5 @@
 import pLimit from "p-limit";
+import { isPrivateScope } from "./npmrc.js";
 import type { NpmPackument, PackageMetadata } from "./types.js";
 
 const REGISTRY = "https://registry.npmjs.org";
@@ -11,6 +12,8 @@ const MAX_RETRIES = 3;
 export interface FetchRegistryOptions {
   concurrency?: number;
   signal?: AbortSignal;
+  /** Scopes that belong to private registries (from .npmrc or config). */
+  privateScopes?: Set<string>;
 }
 
 interface CacheEntry<T> {
@@ -140,9 +143,14 @@ export class RegistryClient {
     }
   }
 
-  async loadMetadata(pkg: { name: string; version: string }, signal?: AbortSignal): Promise<PackageMetadata> {
+  async loadMetadata(
+    pkg: { name: string; version: string },
+    signal?: AbortSignal,
+    privateScopes?: Set<string>,
+  ): Promise<PackageMetadata> {
     const packument = await this.fetchPackument(pkg.name, signal);
     if (!packument) {
+      const isPrivate = privateScopes ? isPrivateScope(pkg.name, privateScopes) : false;
       return {
         name: pkg.name,
         version: pkg.version,
@@ -150,7 +158,10 @@ export class RegistryClient {
         maintainersCount: 0,
         scripts: {},
         weeklyDownloads: null,
-        fetchError: "Package not found on the public registry (private or removed)",
+        isPrivate,
+        fetchError: isPrivate
+          ? undefined
+          : "Package not found on the public registry (private or removed)",
       };
     }
 
@@ -192,6 +203,6 @@ export async function loadAllMetadata(
   const limit = pLimit(Math.max(1, opts.concurrency ?? 10));
   const client = new RegistryClient();
   return Promise.all(
-    packages.map((p) => limit(() => client.loadMetadata(p, opts.signal))),
+    packages.map((p) => limit(() => client.loadMetadata(p, opts.signal, opts.privateScopes))),
   );
 }

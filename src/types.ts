@@ -44,6 +44,8 @@ export interface PackageMetadata {
   scripts: Record<string, string>;
   weeklyDownloads: number | null;
   fetchError?: string;
+  /** True when the package belongs to a private/scoped registry — suppresses fetch-error penalty */
+  isPrivate?: boolean;
   osvVulns?: OsvVulnSummary[];
 }
 
@@ -61,4 +63,10 @@ export interface DepGuardConfig {
   includeOsv?: boolean;
   /** Levenshtein similarity threshold for typosquatting detection (0–1, default: 0.82) */
   typosquatThreshold?: number;
+  /**
+   * Package name scopes treated as private (e.g. ["@mycompany"]).
+   * These packages skip public registry checks without penalty when not found on npmjs.org.
+   * Automatically populated from .npmrc @scope:registry entries.
+   */
+  privateScopes?: string[];
 }

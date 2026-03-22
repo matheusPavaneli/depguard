@@ -102,7 +102,13 @@ export function evaluatePackageRisk(
   let scriptHigh = 0;
   let scriptWarn = 0;
 
-  if (meta.fetchError) {
+  if (meta.isPrivate) {
+    flags.push({
+      id: "private-package",
+      severity: "info",
+      message: "Package belongs to a private/scoped registry — metadata checks skipped",
+    });
+  } else if (meta.fetchError) {
     flags.push({
       id: "fetch-error",
       severity: "warn",

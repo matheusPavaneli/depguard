@@ -1,5 +1,8 @@
+import pLimit from "p-limit";
 import { mergeConfig, loadConfig, DEFAULT_CONFIG } from "./config.js";
+import { deepScanPackage } from "./deep-scan.js";
 import { predictAlert } from "./metrics.js";
+import { loadPrivateScopesFromNpmrc } from "./npmrc.js";
 import { loadAllMetadata } from "./registry.js";
 import { attachOsvToMetadata } from "./osv.js";
 import { evaluatePackageRisk, worstScore } from "./risk-engine.js";
@@ -9,6 +12,10 @@ import type { DepGuardConfig, PackageRiskResult } from "./types.js";
 export interface AuditRunOptions {
   cwd: string;
   config?: DepGuardConfig;
+  /** Enable tarball content analysis for suspicious packages. */
+  deep?: boolean;
+  /** Max concurrent tarball downloads during deep scan (default: 2). */
+  deepConcurrency?: number;
   onProgress?: (done: number, total: number) => void;
 }
 
@@ -35,6 +42,13 @@ export async function runAudit(opts: AuditRunOptions): Promise<AuditRunResult> {
   );
   const typosquatThreshold = cfg.typosquatThreshold ?? DEFAULT_CONFIG.typosquatThreshold;
 
+  // Build the private scopes set: merge .npmrc detection with explicit config
+  const npmrcScopes = loadPrivateScopesFromNpmrc(opts.cwd);
+  const configScopes = (cfg.privateScopes ?? DEFAULT_CONFIG.privateScopes).map(
+    (s) => s.toLowerCase(),
+  );
+  const privateScopes = new Set([...npmrcScopes, ...configScopes]);
+
   const packages = await resolvePackages({
     cwd: opts.cwd,
     includeDev,
@@ -46,6 +60,7 @@ export async function runAudit(opts: AuditRunOptions): Promise<AuditRunResult> {
   const metas = await loadAllMetadata(packages, {
     concurrency,
     signal: undefined,
+    privateScopes,
   });
 
   if (includeOsv) {
@@ -63,7 +78,22 @@ export async function runAudit(opts: AuditRunOptions): Promise<AuditRunResult> {
     opts.onProgress?.(i + 1, total);
   }
 
-  results.sort((a, b) => a.score - b.score);
+  // Deep scan: download and inspect tarball contents for suspicious packages
+  if (opts.deep) {
+    const deepLimit = pLimit(Math.max(1, opts.deepConcurrency ?? 2));
+    await Promise.all(
+      results.map((r) =>
+        deepLimit(async () => {
+          const { flags, penalty } = await deepScanPackage(r.name, r.version);
+          if (flags.length === 0) return;
+          r.flags.push(...flags);
+          r.score = Math.max(0, r.score - penalty);
+        }),
+      ),
+    );
+    results.sort((a, b) => a.score - b.score);
+  }
+
   const minScore = worstScore(results);
   const strictFailed =
     Boolean(cfg.strict) && results.some((r) => predictAlert(r, warnThreshold));

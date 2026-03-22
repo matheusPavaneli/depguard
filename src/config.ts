@@ -16,6 +16,7 @@ export const DEFAULT_CONFIG: Required<
     | "osvConcurrency"
     | "includeOsv"
     | "typosquatThreshold"
+    | "privateScopes"
   >
 > & { strict: boolean } = {
   blockThreshold: 40,
@@ -28,6 +29,7 @@ export const DEFAULT_CONFIG: Required<
   osvConcurrency: 8,
   includeOsv: true,
   typosquatThreshold: 0.82,
+  privateScopes: [],
 };
 
 function validateConfig(cfg: DepGuardConfig, filePath: string): DepGuardConfig {
@@ -64,6 +66,18 @@ function validateConfig(cfg: DepGuardConfig, filePath: string): DepGuardConfig {
         `[depguard] config warning in ${filePath}: "typosquatThreshold" must be a number between 0 and 1 (got ${JSON.stringify(val)}). Using default.`,
       );
       delete out.typosquatThreshold;
+    }
+  }
+
+  if (cfg.privateScopes !== undefined) {
+    if (
+      !Array.isArray(cfg.privateScopes) ||
+      cfg.privateScopes.some((s) => typeof s !== "string")
+    ) {
+      console.warn(
+        `[depguard] config warning in ${filePath}: "privateScopes" must be an array of strings. Using default.`,
+      );
+      delete out.privateScopes;
     }
   }
 

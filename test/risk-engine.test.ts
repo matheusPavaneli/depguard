@@ -71,6 +71,17 @@ describe("evaluatePackageRisk", () => {
     expect(r.flags.some((f) => f.id === "osv-known-vulnerability")).toBe(true);
   });
 
+  it("private packages get info flag and no score penalty", () => {
+    const r = evaluatePackageRisk(
+      meta({ name: "@mycompany/utils", version: "1.0.0", isPrivate: true }),
+      { trusted: false },
+    );
+    expect(r.score).toBe(100);
+    expect(r.flags.some((f) => f.id === "private-package")).toBe(true);
+    expect(r.flags.find((f) => f.id === "private-package")?.severity).toBe("info");
+    expect(r.flags.some((f) => f.id === "fetch-error")).toBe(false);
+  });
+
   it("reduces young-version penalty when weekly downloads are high", () => {
     const highDl = evaluatePackageRisk(
       meta({

